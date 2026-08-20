@@ -1,0 +1,400 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole { OWNER ADMIN EDITOR REVIEWER VIEWER }
+enum WorkspaceStatus { ACTIVE SUSPENDED DELETED }
+enum ProjectStatus { DRAFT IN_PROGRESS READY ARCHIVED }
+enum ProjectVisibility { PRIVATE WORKSPACE }
+enum VideoFormat { LANDSCAPE SHORT SQUARE }
+enum JobType { IDEA RESEARCH OUTLINE SCRIPT SCENE_BRIEF VOICE IMAGE VIDEO TRANSCRIPTION THUMBNAIL RENDER PUBLISH MEDIA_PROCESSING NOTIFICATION }
+enum JobStatus { QUEUED RUNNING SUCCEEDED FAILED CANCELED EXPIRED }
+enum AssetType { IMAGE VIDEO AUDIO DOCUMENT }
+enum AssetStatus { UPLOADING PROCESSING READY FAILED DELETED }
+enum TrackType { VIDEO IMAGE VOICE MUSIC SFX TEXT CAPTION }
+enum RightsStatus { UNKNOWN USER_OWNED LICENSED GENERATED PUBLIC_DOMAIN RESTRICTED }
+enum LedgerEntryType { RESERVATION SETTLEMENT RELEASE ADJUSTMENT }
+enum NotificationType { JOB_COMPLETED JOB_FAILED LOW_CREDITS REVIEW BILLING SECURITY PUBLISHING }
+
+model User {
+  id            String        @id @default(uuid())
+  authSubject   String        @unique
+  email         String        @unique
+  name          String?
+  image         String?
+  locale        String        @default("en-US")
+  timezone      String        @default("UTC")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  memberships   Membership[]
+  ownedProjects Project[]     @relation("ProjectOwner")
+  jobs          AIJob[]
+  notifications Notification[]
+  ledgerEntries UsageLedger[]
+  auditLogs     AuditLog[]
+}
+
+model Workspace {
+  id            String        @id @default(uuid())
+  name          String
+  slug          String        @unique
+  status        WorkspaceStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  memberships   Membership[]
+  projects      Project[]
+  assets        MediaAsset[]
+  templates     Template[]
+  subscription  Subscription?
+  jobs          AIJob[]
+  ledgerEntries UsageLedger[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  connectedAccounts ConnectedAccount[]
+}
+
+model Membership {
+  id          String        @id @default(uuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(VIEWER)
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@unique([userId, workspaceId])
+  @@index([workspaceId, role])
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  workspaceId   String
+  ownerId       String
+  title         String
+  description   String?
+  status        ProjectStatus  @default(DRAFT)
+  visibility    ProjectVisibility @default(PRIVATE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner         User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  settings      ProjectSettings?
+  scripts       Script[]
+  scenes        Scene[]
+  assets        MediaAsset[]
+  timelines     Timeline[]
+  captions      Caption[]
+  thumbnails    Thumbnail[]
+  seoData       SEOData[]
+  renderJobs    RenderJob[]
+  exports       Export[]
+  aiJobs        AIJob[]
+  @@index([workspaceId, status, updatedAt])
+  @@index([ownerId, updatedAt])
+}
+
+model ProjectSettings {
+  id            String      @id @default(uuid())
+  projectId     String      @unique
+  format        VideoFormat  @default(LANDSCAPE)
+  width         Int         @default(1920)
+  height        Int         @default(1080)
+  targetSeconds Int         @default(300)
+  language      String      @default("en")
+  tone          String      @default("clear")
+  project       Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Script {
+  id          String   @id @default(uuid())
+  projectId   String
+  version     Int
+  title       String?
+  content     Json
+  wordCount   Int      @default(0)
+  isCurrent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  scenes      Scene[]
+  @@unique([projectId, version])
+  @@index([projectId, isCurrent])
+}
+
+model Scene {
+  id          String   @id @default(uuid())
+  projectId   String
+  scriptId    String?
+  position    Int
+  title       String
+  narration   String?
+  visualBrief String?
+  durationMs  Int      @default(5000)
+  status      String   @default("DRAFT")
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  script      Script?  @relation(fields: [scriptId], references: [id], onDelete: SetNull)
+  clips       TimelineClip[]
+  @@unique([projectId, position])
+  @@index([scriptId])
+}
+
+model MediaAsset {
+  id          String      @id @default(uuid())
+  workspaceId String
+  projectId   String?
+  type        AssetType
+  status      AssetStatus @default(UPLOADING)
+  rights      RightsStatus @default(UNKNOWN)
+  storageKey  String      @unique
+  mimeType    String
+  sizeBytes   BigInt
+  checksum    String?
+  durationMs  Int?
+  width       Int?
+  height      Int?
+  source      String?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clips       TimelineClip[]
+  @@index([workspaceId, status, createdAt])
+  @@index([projectId, type])
+  @@index([checksum])
+}
+
+model Timeline {
+  id          String        @id @default(uuid())
+  projectId   String
+  version     Int           @default(1)
+  snapshot    Json
+  isCurrent   Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tracks      TimelineTrack[]
+  renderJobs  RenderJob[]
+  @@unique([projectId, version])
+  @@index([projectId, isCurrent])
+}
+
+model TimelineTrack {
+  id         String       @id @default(uuid())
+  timelineId String
+  type       TrackType
+  position   Int
+  name       String
+  timeline   Timeline     @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  clips      TimelineClip[]
+  @@unique([timelineId, position])
+}
+
+model TimelineClip {
+  id          String       @id @default(uuid())
+  trackId     String
+  assetId     String?
+  sceneId     String?
+  startMs     Int
+  endMs       Int
+  sourceStartMs Int @default(0)
+  speed       Float @default(1)
+  volume      Float @default(1)
+  transform   Json?
+  effects     Json?
+  text        String?
+  track       TimelineTrack @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  asset       MediaAsset?   @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  scene       Scene?         @relation(fields: [sceneId], references: [id], onDelete: SetNull)
+  @@index([trackId, startMs])
+  @@index([assetId])
+}
+
+model Caption {
+  id          String   @id @default(uuid())
+  projectId   String
+  version     Int
+  format      String   @default("vtt")
+  cues        Json
+  style       Json?
+  needsReview Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, version])
+  @@index([projectId, needsReview])
+}
+
+model Thumbnail {
+  id        String   @id @default(uuid())
+  projectId String
+  assetId   String?
+  title     String?
+  prompt    String?
+  selected  Boolean  @default(false)
+  metadata  Json?
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId, selected])
+}
+
+model SEOData {
+  id          String   @id @default(uuid())
+  projectId   String
+  version     Int
+  titles      Json
+  description String?
+  keywords    Json?
+  chapters    Json?
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@unique([projectId, version])
+}
+
+model AIJob {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  projectId      String?
+  userId         String
+  type           JobType
+  status         JobStatus @default(QUEUED)
+  provider       String?
+  idempotencyKey String
+  input          Json
+  output         Json?
+  errorCode      String?
+  errorMessage   String?
+  progress       Int       @default(0)
+  reservedUnits  Decimal   @default(0) @db.Decimal(12, 4)
+  actualUnits    Decimal?  @db.Decimal(12, 4)
+  attempts       Int       @default(0)
+  createdAt      DateTime  @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project        Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  user           User      @relation(fields: [userId], references: [id])
+  ledgerEntries  UsageLedger[]
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, status, createdAt])
+  @@index([projectId, type])
+}
+
+model RenderJob {
+  id          String    @id @default(uuid())
+  projectId   String
+  timelineId  String
+  status      JobStatus @default(QUEUED)
+  width       Int
+  height      Int
+  codec       String    @default("h264")
+  snapshot    Json
+  progress    Int       @default(0)
+  errorCode   String?
+  errorMessage String?
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeline    Timeline  @relation(fields: [timelineId], references: [id])
+  exports     Export[]
+  @@index([projectId, status, createdAt])
+}
+
+model Export {
+  id          String    @id @default(uuid())
+  projectId   String
+  renderJobId String
+  storageKey  String    @unique
+  mimeType    String
+  sizeBytes   BigInt
+  checksum    String
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  renderJob   RenderJob @relation(fields: [renderJobId], references: [id], onDelete: Cascade)
+  @@index([projectId, createdAt])
+}
+
+model Template {
+  id          String    @id @default(uuid())
+  workspaceId String?
+  name        String
+  version     Int       @default(1)
+  definition  Json
+  isPublic    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, name, version])
+  @@index([isPublic, createdAt])
+}
+
+model UsageLedger {
+  id          String          @id @default(uuid())
+  workspaceId String
+  userId      String?
+  aiJobId     String?
+  type        LedgerEntryType
+  operation   String
+  units       Decimal         @db.Decimal(12, 4)
+  credits     Decimal         @db.Decimal(12, 4)
+  idempotencyKey String
+  createdAt   DateTime        @default(now())
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aiJob       AIJob?          @relation(fields: [aiJobId], references: [id], onDelete: SetNull)
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt, type])
+}
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  workspaceId          String   @unique
+  providerCustomerId    String   @unique
+  providerSubscriptionId String? @unique
+  plan                 String
+  status               String
+  currentPeriodEnd     DateTime?
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  workspaceId String
+  userId      String
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?
+  dedupeKey   String           @unique
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  workspaceId String
+  actorId     String?
+  action      String
+  resource    String
+  resourceId  String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  @@index([workspaceId, createdAt])
+  @@index([resource, resourceId])
+}
+
+model ConnectedAccount {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  provider       String
+  providerUserId String
+  encryptedToken String
+  scopes         String[]
+  createdAt      DateTime @default(now())
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerUserId])
+  @@index([workspaceId, provider])
+}
