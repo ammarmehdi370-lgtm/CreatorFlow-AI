@@ -1,26 +1,6 @@
-export default function HomePage() {
-  return (
-    <main className="min-h-screen bg-slate-950 px-6 py-16 text-white">
-      <div className="mx-auto max-w-5xl">
-        <p className="mb-4 text-sm uppercase tracking-[0.2em] text-brand-200">CreatorFlow AI</p>
-        <h1 className="text-4xl font-bold md:text-6xl">Turn ideas into videos.</h1>
-        <p className="mt-6 max-w-2xl text-lg text-slate-300">
-          Guided production flow for idea, research, scripting, scenes, narration, captions, rendering, and export.
-        </p>
+import Link from 'next/link';
+import { ArrowRight, Check, Film, Sparkles } from 'lucide-react';
 
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {[
-            'Idea to outline',
-            'Script and scenes',
-            'Voice, captions, render',
-          ].map((step) => (
-            <div key={step} className="rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-soft">
-              <div className="mb-3 h-2 w-16 rounded-full bg-brand-500" />
-              <h2 className="text-lg font-semibold">{step}</h2>
-            </div>
-          ))}
-        </div>
-      </div>
-    </main>
-  );
+export default function HomePage() {
+  return <main className="landing-page"><nav className="landing-nav"><Link href="/" className="brand"><span className="brand-mark"><Film size={17} /></span><span>CreatorFlow</span></Link><div><Link href="/login" className="landing-signin">Sign in</Link><Link href="/signup" className="button primary">Start creating <ArrowRight size={15} /></Link></div></nav><section className="landing-hero"><div><p className="eyebrow">The intelligent video production studio</p><h1>Turn ideas<br /><em>into videos.</em></h1><p className="landing-copy">From the first spark to the final export, CreatorFlow gives your creative process a place to breathe, evolve, and ship.</p><div className="landing-actions"><Link href="/signup" className="button primary">Create your workspace <ArrowRight size={16} /></Link><Link href="/dashboard" className="text-link">Open demo workspace <ArrowRight size={14} /></Link></div></div><div className="landing-art"><div className="landing-art-core"><Sparkles size={25} /><strong>Your next story</strong><span>is already taking shape.</span></div><div className="landing-art-label label-one"><Check size={14} /> Editable at every step</div><div className="landing-art-label label-two"><Film size={14} /> Ready for YouTube</div></div></section><section className="landing-flow"><p className="eyebrow">A calmer way to create</p><h2>One connected flow.<br />Every creative decision stays yours.</h2><div className="flow-steps">{['Idea & research', 'Script & scenes', 'Voice & media', 'Timeline & export'].map((item, index) => <div key={item}><span>0{index + 1}</span><strong>{item}</strong><p>{['Find the angle people want to hear.', 'Give the story shape and rhythm.', 'Build a world around your words.', 'Polish, render, and send it out.'][index]}</p></div>)}</div></section></main>;
 }

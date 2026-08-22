@@ -16,3 +16,13 @@ export async function POST(request: NextRequest) {
     return jsonError(message, message.includes('Authentication') ? 401 : 400);
   }
 }
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = requireAuth(request);
+    const service = new UsageService();
+    return jsonSuccess({ usage: service.listUsage(auth.userId) });
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : 'Unable to load usage', 401);
+  }
+}

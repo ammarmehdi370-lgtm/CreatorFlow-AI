@@ -40,6 +40,12 @@ CreatorFlow AI is an AI-powered production studio for YouTube creators. It suppo
 - `npm run db:push` — sync Prisma with database
 - `npm run db:studio` — Prisma Studio
 
+## Frontend routes
+
+The product shell is available at `/dashboard` with project creation at `/projects/new`. Project workspaces use `/projects/:projectId` and preserve the active production step in the `step` query parameter. The workspace rail covers Idea, Research, Script, Scenes, Voice, Media, Timeline, Package, and Render/Export. `/assets`, `/settings`, and `/usage` provide the supporting workspace views.
+
+The current development auth adapter uses the default `dev-user` identity when no `x-user-id` header is supplied. The frontend calls the existing project, script, AI, voice, asset, timeline, job, render, export, and usage endpoints directly. Uploads, billing, profile persistence, captions, and YouTube publishing remain provider/backend capabilities that are explicitly surfaced as unavailable until their server contracts exist; the UI does not fabricate those operations.
+
 ## Project structure
 
 ```text

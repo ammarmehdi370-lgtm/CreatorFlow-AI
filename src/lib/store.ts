@@ -100,6 +100,20 @@ export type JobRecord = {
   updatedAt: string;
 };
 
+export type UsageRecord = {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  projectId?: string;
+  jobId?: string;
+  type: string;
+  units: number;
+  amountCredits: number;
+  status: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
 export type ExportRecord = {
   id: string;
   projectId: string;
@@ -116,6 +130,7 @@ export const memoryStore = {
   assets: [] as AssetRecord[],
   voices: [] as VoiceRecord[],
   jobs: [] as JobRecord[],
+  usage: [] as UsageRecord[],
   exports: [] as ExportRecord[],
 };
 

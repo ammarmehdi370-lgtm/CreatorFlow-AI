@@ -24,6 +24,12 @@ export class UsageService extends BaseService {
         project.updatedAt = new Date().toISOString();
       }
     });
+    memoryStore.usage.push(entry);
     return entry;
+  }
+
+  listUsage(userId: string) {
+    const user = this.ensureUser(userId);
+    return memoryStore.usage.filter((entry) => entry.workspaceId === user.workspaceId);
   }
 }

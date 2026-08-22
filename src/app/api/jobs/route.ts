@@ -2,12 +2,13 @@ import { NextRequest } from 'next/server';
 
 import { jsonError, jsonSuccess, parseBody } from '@/lib/api';
 import { requireAuth } from '@/lib/auth';
+import { memoryStore } from '@/lib/store';
 import { AIService } from '@/services/ai-service';
 
 export async function GET(request: NextRequest) {
   try {
-    requireAuth(request);
-    const jobs = []; 
+    const auth = requireAuth(request);
+    const jobs = memoryStore.jobs.filter((job) => !job.projectId || memoryStore.projects.some((project) => project.id === job.projectId && project.workspaceId === auth.workspaceId));
     return jsonSuccess({ jobs });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : 'Failed to list jobs', 401);
